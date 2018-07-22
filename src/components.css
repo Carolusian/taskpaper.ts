@@ -1,0 +1,16 @@
+div.TaskPaper {
+    width: 600px;
+    margin: auto;
+} 
+
+div.TaskPaperReader {
+    position: relative;
+    width: 600px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    border-width: 2px;
+    border-color: rgb(102, 102, 102);
+    border-style: dashed;
+    border-radius: 5px;
+}
