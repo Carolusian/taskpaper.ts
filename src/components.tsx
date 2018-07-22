@@ -2,78 +2,32 @@ import 'braft-editor/dist/braft.css'
 
 import * as React from 'react'
 import Dropzone from 'react-dropzone'
+import { connect } from 'react-redux'
+
+import PropTypes from 'prop-types'
 
 import BraftEditor from 'braft-editor'
 import { RawDraftContentState } from 'draft-js'
+import { Dispatch } from 'redux'
+import { readTaskPaperFile } from './actions'
 import './components.css'
-
-import { createStore } from 'redux'
-
-// Define state
-interface IState {
-  content: string
-}
-
-const initialState: IState = {
-  content: `Welcome:
-	- TaskPaper knows about projects, tasks, notes, and tags.
-	- It auto-formats these items so that your lists are easier to read.
-	- Delete this text when you are ready to start your own lists.
-To Create Items:
-	- To create a task, type a dash followed by a space.
-	- To create a project, type a line ending with a colon.
-	- To create a tag, type '@' followed by the tag’s name.
-To Organize Items:
-	- To indent items press the Tab key.
-	- To un-indent items press Shift-Tab.
-	- To mark a task done click leading dash.
-To Fold, Focus, and Filter Items:
-	- To fold/unfold an item click the dot to the left of the item.
-	- To focus on a single project select it in the sidebar.
-	- To filter your list enter a search in the toolbar search field.
-` 
-}
-
-// Define actions
-enum ActionTypes {
-  READ_TASKPAPER_FILE = 'READ_TASKPAPER_FILE', 
-  SAVE_TASKPAPER_FILE = 'SAVE_TASKPAPER_FILE'
-}
-
-interface IReadTaskPaperAction { type: ActionTypes.READ_TASKPAPER_FILE, payload: { content:string }}
-interface ISaveTaskPaperAction { type: ActionTypes.SAVE_TASKPAPER_FILE, payload: { content:string }}
-
-type Action = IReadTaskPaperAction | ISaveTaskPaperAction
-
-// Define reducers
-const rootReducer = (state = initialState, action: Action) => {
-  switch (action.type) {
-    case ActionTypes.READ_TASKPAPER_FILE: {
-      const contentBody = action.payload.content 
-      const ret = {
-        ...state, content: contentBody
-      }
-      return ret
-    }
-    default: {
-      return state
-    }
-  }
-}
-
-const store = createStore(rootReducer)
+// import parse from './parser'
 
 // Define helpers
 const nl2br = (raw:string) => raw.replace(/(?:\r\n|\r|\n)/g, '<br>')
 
-class TaskPaperReader extends React.Component {
-  constructor(props:any) {
+interface ITaskPaperReaderProps {
+  dispatch: Dispatch
+}
+
+class TaskPaperReader extends React.Component<ITaskPaperReaderProps, {}> {
+  constructor(props:ITaskPaperReaderProps) {
     super(props)
     this.state = { files: []}
     this.onDrop = this.onDrop.bind(this)
   }
 
-  public onDrop = (files:any) => {
+  public onDrop = (files:File[]) => {
     this.setState({ files })
     // One file a time
     const file1 = files[0]
@@ -81,12 +35,7 @@ class TaskPaperReader extends React.Component {
 
     // Load file content
     reader.onload = (f:any) => {
-      store.dispatch({
-        payload: {
-          content: f.target.result
-        },
-        type: ActionTypes.READ_TASKPAPER_FILE
-      })
+      this.props.dispatch(readTaskPaperFile(f.target.result))
     }
     reader.readAsText(file1)
   }
@@ -94,22 +43,36 @@ class TaskPaperReader extends React.Component {
   public render() {
     return (
       <Dropzone className="TaskPaperReader" onDrop={this.onDrop}>
-        Try dropping your taskpaper file here.
+        Drop your taskpaper file here.
       </Dropzone>
     )
   }
 }
 
+const ConnectedTaskPaperReader = connect()(TaskPaperReader)
+
 class TaskPaper extends React.Component<any, any> {
-  public editorInstance:BraftEditor|null = null
+
+  public static contextTypes = {
+    store: PropTypes.object
+  }
+
+  public editorInstance: BraftEditor | null 
+
+  constructor(props:any) {
+    super(props)
+    this.editorInstance = null
+  }
 
   public render() {
+    const { store } = this.context
+    store.subscribe(this.rerender)
+
     const editorProps: BraftEditor.editorProps = {
       contentFormat: 'html',
       height: 500,
-      initialContent: nl2br(this.props.content),
-      onChange: this.handleChange,
-      onRawChange: this.handleRawChange
+      initialContent: nl2br(store.getState().content),
+      onChange: this.handleChange
     }
 
     const controls = ['undo', 'redo']
@@ -126,23 +89,24 @@ class TaskPaper extends React.Component<any, any> {
 
     return (
       <div className="TaskPaper">
-        <TaskPaperReader />
+        <ConnectedTaskPaperReader />
         <BraftEditor controls={controls} extendControls={extendControls} {...editorProps} ref={(instance) => this.editorInstance = instance}/>
       </div>
     );
   }
 
-  public handleChange(content: RawDraftContentState) {
+  public handleChange = (content: RawDraftContentState) => {
     window.console.log(content)
   }
 
-  public handleRawChange(rawContent: RawDraftContentState) {
-    window.console.log(rawContent)
+  public setContent = (content:string) => {
+    (this.editorInstance as any).setContent(nl2br(content))
   }
-  
-  public forceRender() {
-    (this.editorInstance as any).setContent(nl2br(store.getState().content))
+
+  public rerender = () => {
+    const { store } = this.context
+    this.setContent(store.getState().content)
   }
 }
 
-export { store, TaskPaper }
+export default TaskPaper

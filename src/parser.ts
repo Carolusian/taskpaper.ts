@@ -13,7 +13,7 @@ const TAG = P.regex(/@([^\(\s]+(\([^\)]*\))?)/, 1)
 const NON_TAG_STRING = P.regex(/(?:[^@\n][^\s\n]*)(?:[ \t]+[^@\n][^\s\n]*)*/)
 
 const TAGS = P.seq(P.regexp(/[\t ]+/), TAG).map(([_, tag]) => tag).many()
-    
+
 // Project definition
 const PROJECT = P.seq(
     P.index,
@@ -106,4 +106,4 @@ function parse (str:string) {
   }
 }
 
-export default parse
+export default parse 

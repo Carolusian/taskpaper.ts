@@ -3,25 +3,21 @@ import './index.css';
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 
-import { store, TaskPaper } from './components';
+import TaskPaper from './components';
 import registerServiceWorker from './registerServiceWorker';
 
-let taskpaperInstance: TaskPaper | null
+import { Provider } from 'react-redux'
+import { createStore } from 'redux'
+import { rootReducer } from './reducers'
 
-const render = () => {
-  ReactDOM.render(
-    <TaskPaper content={store.getState().content} ref={(instance) => taskpaperInstance = instance} />,
-    document.getElementById('root') as HTMLElement
-  );
-}
+const store = createStore(rootReducer)
 
-const forceRender = () => {
-  taskpaperInstance!.forceRender()
-}
-
-store.subscribe(forceRender)
-
-render()
+ReactDOM.render(
+  <Provider store={store}>
+    <TaskPaper />
+  </Provider>,
+  document.getElementById('root') as HTMLElement
+);
 
 registerServiceWorker();
 
