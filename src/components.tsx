@@ -7,11 +7,11 @@ import { connect } from 'react-redux'
 import PropTypes from 'prop-types'
 
 import BraftEditor from 'braft-editor'
-import { RawDraftContentState } from 'draft-js'
 import { Dispatch } from 'redux'
+import striptags from 'striptags'
 import { readTaskPaperFile } from './actions'
 import './components.css'
-// import parse from './parser'
+import parse from './parser'
 
 // Define helpers
 const nl2br = (raw:string) => raw.replace(/(?:\r\n|\r|\n)/g, '<br>')
@@ -72,10 +72,10 @@ class TaskPaper extends React.Component<any, any> {
       contentFormat: 'html',
       height: 500,
       initialContent: nl2br(store.getState().content),
-      onChange: this.handleChange
+      onHTMLChange: this.handleChange
     }
 
-    const controls = ['undo', 'redo']
+    // const controls = ['undo', 'redo']
 
     const extendControls = [
       {
@@ -90,22 +90,62 @@ class TaskPaper extends React.Component<any, any> {
     return (
       <div className="TaskPaper">
         <ConnectedTaskPaperReader />
-        <BraftEditor controls={controls} extendControls={extendControls} {...editorProps} ref={(instance) => this.editorInstance = instance}/>
+        <BraftEditor extendControls={extendControls} {...editorProps} ref={(instance) => this.editorInstance = instance}/>
       </div>
     );
   }
 
-  public handleChange = (content: RawDraftContentState) => {
-    window.console.log(content)
+  public handleChange = (content:string) => {
+    const stripContent = striptags(content, '<p>').replace(/<p>/g, '').replace(/<\/p>/g, '\n')
+    window.console.log(stripContent)
   }
 
   public setContent = (content:string) => {
-    (this.editorInstance as any).setContent(nl2br(content))
+    const parsed = parse(content)
+    const editor = (this.editorInstance as any)
+    editor.setContent(this.mapProjectsToHtml(parsed.children))
   }
 
   public rerender = () => {
     const { store } = this.context
     this.setContent(store.getState().content)
+  }
+
+  public mapTaskToHtml = (task: any) => {
+    const taskTags = task.tags? task.tags: []
+
+    let lineThrough:boolean = false
+    lineThrough = false
+
+    for (const t of taskTags) {
+      if (t === 'done' || t.startsWith('done(')) {
+        lineThrough = true
+      }
+    }
+
+    let tags = taskTags.map((t:string) => `@${t}`).join(' ')
+    if (tags) {
+      tags = `<span style="color:#999999">${tags}</span>`
+    }
+
+    if (lineThrough) {
+      return `<p>\t- <span style="text-decoration:line-through">${task.value}</span> ${tags}</p>`
+    } else {
+      return `<p>\t- ${task.value} ${tags}</p>`
+    }
+  }
+
+  public mapTasksToHtml = (tasks: [any]) => {
+    return tasks.map((t) => this.mapTaskToHtml(t)).join('')
+  }
+
+  public mapProjectToHtml = (project: any) => {
+    const projectHtml = `<p>${project.value}:</p>`
+    return projectHtml + this.mapTasksToHtml(project.children)
+  }
+
+  public mapProjectsToHtml = (projects: any) => {
+    return projects.map((p:any) => this.mapProjectToHtml(p)).join('')
   }
 }
 
